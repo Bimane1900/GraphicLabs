@@ -110,8 +110,8 @@ void renderMesh(Mesh *mesh) {
 	glBindVertexArray(mesh->vao);
 	
 	// To accomplish wireframe rendering (can be removed to get filled triangles)
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); 
-
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); 
+	
 	// Draw all triangles
 	glDrawElements(GL_TRIANGLES, mesh->nt * 3, GL_UNSIGNED_INT, NULL); 
 	glBindVertexArray(0);
@@ -122,25 +122,17 @@ void renderMesh(Mesh *mesh) {
 void display(void) {
 	Mesh *mesh;
 	
-	glClear(GL_COLOR_BUFFER_BIT);	
+	glClear(GL_DEPTH_BUFFER_BIT+GL_COLOR_BUFFER_BIT);
 		
 	// Assignment 1: Calculate the transform to view coordinates yourself 	
 	// The matrix V should be calculated from camera parameters
 	// Therefore, you need to replace this hard-coded transform. 
 	V = CreateEmptyMatrix();
-	Vector neg = {-cam.position.x, -cam.position.y, -cam.position.z};
-	Matrix T = CreateTranslation(neg);
+	Matrix T = CreateTranslation({ -cam.position.x, -cam.position.y, -cam.position.z });
 	Matrix Rx = CreateRotation(-cam.rotation.x, 'x');
 	Matrix Ry = CreateRotation(-cam.rotation.y, 'y');
 	Matrix Rz = CreateRotation(-cam.rotation.z, 'z');
 	V = MatMatMul(Rz, MatMatMul(Ry, MatMatMul(Rx, T)));
-	/*V.e[0] = 1.0f; V.e[4] = 0.0f; V.e[ 8] = 0.0f; V.e[12] =   0.0f;
-	V.e[1] = 0.0f; V.e[5] = 1.0f; V.e[ 9] = 0.0f; V.e[13] =   0.0f;
-	V.e[2] = 0.0f; V.e[6] = 0.0f; V.e[10] = 1.0f; V.e[14] = -cam.position.z;
-	V.e[3] = 0.0f; V.e[7] = 0.0f; V.e[11] = 0.0f; V.e[15] =   1.0f;*/
-	//V = MatMatMul(Rz, Rx);
-	//V = MatMatMul(T, V);
-	//V.e[14] = -cam.position.z;
 	
 
 	// Assignment 1: Calculate the projection transform yourself 	
@@ -149,18 +141,17 @@ void display(void) {
 
 
 	//P = OrthogonalProj({ -20,-10,1 }, { 20,10,1000 });
-	P = PerspectiveProj2(cam.fov, screen_width / screen_height, cam.nearPlane, cam.farPlane);
+	P = PerspectiveProj2(cam.fov, (float)screen_width / (float)screen_height, cam.nearPlane, cam.farPlane);
 	
 
-	/*P.e[0] = 1.299038f; P.e[4] = 0.000000f; P.e[8] = 0.000000f; P.e[12] = 0.0f;
-	P.e[1] = 0.000000f; P.e[5] = 1.732051f; P.e[9] = 0.000000f; P.e[13] = 0.0f;
-	P.e[2] = 0.000000f; P.e[6] = 0.000000f; P.e[10] = -1.000200f; P.e[14] = -2.000200f;
-	P.e[3] = 0.000000f; P.e[7] = 0.000000f; P.e[11] = -1.000000f; P.e[15] =  0.0f;*/
-
+	//PrintMatrix((char*)"oaskfs", P);
 	// This finds the combined view-projection matrix
 	PV = MatMatMul(P, V);
-	PrintMatrix(( char*)"oaskfs",P);
-	printf("%f", cam.position.z);
+	//PV = V;
+	PrintMatrix(( char*)"Matrix: ",V);
+	printf("x: %f", cam.position.x);
+	printf("y: %f", cam.position.y);
+	printf("z: %f", cam.position.z);
 
 	// Select the shader program to be used during rendering 
 	glUseProgram(shprg);
@@ -186,40 +177,40 @@ void changeSize(int w, int h) {
 void keypress(unsigned char key, int x, int y) {
 	switch(key) {
 	case 'z':
-		cam.position.z -= 0.2f;
+		cam.position.z -= 0.6f;
 		break;
 	case 'Z':
-		cam.position.z += 0.2f;
+		cam.position.z += 0.6f;
 		break;
 	case 'y':
-		cam.position.y += 0.2f;
+		cam.position.y += 0.6f;
 		break;
 	case 'Y':
-		cam.position.y -= 0.2f;
+		cam.position.y -= 0.6f;
 		break;
 	case 'x':
-		cam.position.x += 0.2f;
+		cam.position.x += 0.6f;
 		break;
 	case 'X':
-		cam.position.x -= 0.2f;
+		cam.position.x -= 0.6f;
 		break;
 	case 'k':
-		cam.rotation.y += 0.2f;
+		cam.rotation.y += 0.6f;
 		break;
 	case 'K':
-		cam.rotation.y -= 0.2f;
+		cam.rotation.y -= 0.6f;
 		break;
 	case 'j':
-		cam.rotation.z += 0.2f;
+		cam.rotation.z += 0.6f;
 		break;
 	case 'J':
-		cam.rotation.z -= 0.2f;
+		cam.rotation.z -= 0.6f;
 		break;
 	case 'h':
-		cam.rotation.x += 0.2f;
+		cam.rotation.x += 0.6f;
 		break;
 	case 'H':
-		cam.rotation.x -= 0.2f;
+		cam.rotation.x -= 0.6f;
 		break;
 	case 'Q':
 	case 'q':		
@@ -233,6 +224,7 @@ void keypress(unsigned char key, int x, int y) {
 void init(void) {
 	// Compile and link the given shader program (vertex shader and fragment shader)
 	prepareShaderProgram(vs_n2c_src, fs_ci_src); 
+	glEnable(GL_DEPTH_TEST);
 
 	// Setup OpenGL buffers for rendering of the meshes
 	Mesh * mesh = meshList;

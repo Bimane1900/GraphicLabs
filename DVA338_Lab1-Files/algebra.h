@@ -37,7 +37,7 @@ Matrix CreateTranslation(Vector v);
 Matrix CreateScaling(float x, float y, float z);
 Matrix CreateRotation(float theta, char a);
 Matrix OrthogonalProj(Vector cl, Vector Far);
-Matrix PerspectiveProj2(float fovy, int aspect, float Near, float Far);
+Matrix PerspectiveProj2(float fovy, float aspect, float Near, float Far);
 
 
 #endif
