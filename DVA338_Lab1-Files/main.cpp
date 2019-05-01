@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <glew.h>
 #include <freeglut.h>
+#include <iostream>
+#include <fstream>
 
 #include "algebra.h"
 #include "shaders.h"
@@ -261,9 +263,25 @@ void keypress(unsigned char key, int x, int y) {
 	glutPostRedisplay();
 }
 
+const char ** readShader(char * filename) {
+	FILE * f;
+	const char *shdcode = (char*)calloc(1000, sizeof 'a');
+	f = fopen(filename, "r");
+	if (f == NULL) {
+		perror("Error opening file");
+		
+	}
+	char file[200];
+	while (fgets(file, 199, f) != NULL) { strcat((char*)shdcode, file); };
+	fclose(f);
+	printf("%s", shdcode);
+	return &shdcode;
+
+}
+
 void init(void) {
 	// Compile and link the given shader program (vertex shader and fragment shader)
-	prepareShaderProgram(vs_n2c_src, fs_ci_src); 
+	prepareShaderProgram(readShader((char*)"shader1.txt"), fs_ci_src); 
 	glEnable(GL_DEPTH_TEST);
 
 	// Setup OpenGL buffers for rendering of the meshes
@@ -382,6 +400,7 @@ int main(int argc, char **argv) {
 	insertModel(&meshList, sphere.nov, sphere.verts, sphere.nof, sphere.faces, 12.0,(char*)"Sphere");
 	insertModel(&meshList, teapot.nov, teapot.verts, teapot.nof, teapot.faces, 3.0,(char*)"Teapot");*/
 	object = meshList;
+
 	init();
 	printMenu();
 	glutMainLoop();
