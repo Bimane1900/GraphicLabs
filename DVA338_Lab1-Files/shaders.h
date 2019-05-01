@@ -25,7 +25,7 @@ static const char * fs_ci_src[] = {
 	"                                                                  \n"
 	"void main(void)                                                   \n"
 	"{                                                                 \n"
-	"    fColor = color;                                               \n"
+	"    fColor = color;                                               \n"	
 	"}                                                                 \n"
 };
 

@@ -116,8 +116,7 @@ Matrix CreateRotation(float theta, char a)
 {
 	Matrix c = CreateEmptyMatrix();
 	switch (a){
-		case 'x': 
-			
+		case 'x': 	
 			c.e[5] = cos(theta*PI / 180);
 			c.e[6] = sin(theta*PI / 180);
 			c.e[9] = -sin(theta*PI / 180);
@@ -157,13 +156,9 @@ Matrix OrthogonalProj(Vector close, Vector Far)
 Matrix PerspectiveProj2(float fovy, float aspect, float Near, float Far)
 {
 	Matrix m = CreateEmptyMatrix();
-	double D2R = PI / 180;
-	double scaleY = 1.0 / tan(D2R * fovy / 2);
-	double scaleX = scaleY / aspect;
-	double nearmfar = Near - Far;
 	m.e[0] = ((1 / tan(fovy / 2 * PI / 90))) / aspect;
 	m.e[5] = (1 / tan(fovy / 2 * PI / 90));
-	m.e[10] = /*(Far + Near) / nearmfar;*/(Far + Near) / (Near - Far);
+	m.e[10] = (Far + Near) / (Near - Far);
 	m.e[11] = -1;
 	m.e[14] = (2 * Far*Near) / (Near - Far);
 	m.e[15] = 0;

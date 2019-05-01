@@ -13,8 +13,11 @@ typedef struct _Mesh {
 	Vector *vnorms;
 	int nt;				
 	Triangle *triangles;
+	Vector rotation;
+	Vector scale;
+	Vector translation;
 	struct _Mesh *next; 
-		
+	char* name;
 	unsigned int vbo, ibo, vao; // OpenGL handles for rendering
 } Mesh;
 
@@ -26,6 +29,6 @@ typedef struct _Camera {
 	double farPlane; 
 } Camera;
 
-void insertModel(Mesh ** objlist, int nv, float * vArr, int nt, int * tArr, float scale = 1.0);
+void insertModel(Mesh ** objlist, int nv, float * vArr, int nt, int * tArr, float scale = 1.0, char* name = (char*)"Name", Vector t = { 0,0,0 }, Vector r = { 0,0,0 }, Vector s = { 1,1,1 });
 
 #endif

@@ -6,14 +6,18 @@ float rnd() {
 	return 2.0f * float(rand()) / float(RAND_MAX) - 1.0f;
 }
 
-void insertModel(Mesh **list, int nv, float * vArr, int nt, int * tArr, float scale) {
+void insertModel(Mesh **list, int nv, float * vArr, int nt, int * tArr, float scale, char* name, Vector t, Vector r, Vector s) {
 	Mesh * mesh = (Mesh *) malloc(sizeof(Mesh));
 	mesh->nv = nv;
 	mesh->nt = nt;	
 	mesh->vertices = (Vector *) malloc(nv * sizeof(Vector));
 	mesh->vnorms = (Vector *)malloc(nv * sizeof(Vector));
 	mesh->triangles = (Triangle *) malloc(nt * sizeof(Triangle));
-	
+	mesh->rotation = r;
+	mesh->scale = s;
+	mesh->translation = t;
+	mesh->name = (char*)malloc(_mbstrlen(name));
+	mesh->name = name;
 	// set mesh vertices
 	for (int i = 0; i < nv; i++) {
 		mesh->vertices[i].x = vArr[i*3] * scale;

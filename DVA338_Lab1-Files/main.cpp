@@ -6,14 +6,14 @@
 #include "algebra.h"
 #include "shaders.h"
 #include "mesh.h"
-
+void ModMenu(int k);
 
 int screen_width = 1024;
 int screen_height = 768;
 
 
 Mesh *meshList = NULL; // Global pointer to linked list of triangle meshes
-
+Mesh* object = NULL;
 Camera cam = {{0,0,20}, {0,0,0}, 60, 1, 10000}; // Setup the global camera parameters
 
 
@@ -94,18 +94,19 @@ void renderMesh(Mesh *mesh) {
 	
 	// Assignment 1: Apply the transforms from local mesh coordinates to world coordinates here
 	// Combine it with the viewing transform that is passed to the shader below
+	Matrix S = CreateScaling(mesh->scale.x, mesh->scale.y, mesh->scale.z);
+	Matrix Rx = CreateRotation(mesh->rotation.x, 'x');
+	Matrix Ry = CreateRotation(mesh->rotation.y, 'y');
+	Matrix Rz = CreateRotation(mesh->rotation.z, 'z');
+	Matrix T = CreateTranslation(mesh->translation);
+	Matrix W = MatMatMul(T, MatMatMul(Rx, MatMatMul(Ry, MatMatMul(Rz, S))));
+	Matrix M = MatMatMul(PV, W);
 	
-	/*for (int i = 0; i < mesh->nv; i++)
-	{
-		mesh->vertices[i] = Homogenize(MatVecMul(PV, mesh->vertices[i]));
-	}*/
-	
-
 	// Pass the viewing transform to the shader
 	GLint loc_PV = glGetUniformLocation(shprg, "PV");
-	glUniformMatrix4fv(loc_PV, 1, GL_FALSE, PV.e);
+	glUniformMatrix4fv(loc_PV, 1, GL_FALSE, M.e);
 
-
+	
 	// Select current resources 
 	glBindVertexArray(mesh->vao);
 	
@@ -139,19 +140,12 @@ void display(void) {
 	// The matrix P should be calculated from camera parameters
 	// Therefore, you need to replace this hard-coded transform. 
 
-
 	//P = OrthogonalProj({ -20,-10,1 }, { 20,10,1000 });
 	P = PerspectiveProj2(cam.fov, (float)screen_width / (float)screen_height, cam.nearPlane, cam.farPlane);
 	
 
-	//PrintMatrix((char*)"oaskfs", P);
 	// This finds the combined view-projection matrix
 	PV = MatMatMul(P, V);
-	//PV = V;
-	PrintMatrix(( char*)"Matrix: ",V);
-	printf("x: %f", cam.position.x);
-	printf("y: %f", cam.position.y);
-	printf("z: %f", cam.position.z);
 
 	// Select the shader program to be used during rendering 
 	glUseProgram(shprg);
@@ -163,7 +157,6 @@ void display(void) {
 		renderMesh(mesh);
 		mesh = mesh->next;
 	}
-
 	glFlush();
 }
 
@@ -173,8 +166,8 @@ void changeSize(int w, int h) {
 	glViewport(0, 0, screen_width, screen_height);
 
 }
-
 void keypress(unsigned char key, int x, int y) {
+	//int k, input = 0;
 	switch(key) {
 	case 'z':
 		cam.position.z -= 0.6f;
@@ -212,7 +205,54 @@ void keypress(unsigned char key, int x, int y) {
 	case 'H':
 		cam.rotation.x -= 0.6f;
 		break;
-	case 'Q':
+	case 'a':
+		object->rotation.x -= 1.0;
+		break;
+	case 'A':
+		object->rotation.x += 1.0;
+		break;
+	case 's':
+		object->rotation.y -= 1.0;
+		break;
+	case 'S':
+		object->rotation.y += 1.0;
+		break;
+	case 'd':
+		object->rotation.z -= 1.0;
+		break;
+	case 'D':
+		object->rotation.z += 1.0;
+		break;
+	case 'o':
+		if (object->next == NULL)
+		{
+			object = meshList;
+		}
+		else 
+		{
+			object = object->next;
+		}
+		break;
+	case 'O':
+		/*fflush(stdin);
+		float x, y, z;
+		printf("Enter a Vector");
+		scanf("%f %f %f", &x,&y,&z);
+		object->translation = { x, y, z };
+		PrintVector((char*)"OO: ", { x, y, z });*/
+		break;
+	case '1':
+	case '2':
+	case '3':
+	case '4':
+	case '5':
+	case '6':
+	case '7':
+	case '8':
+	case '9':
+		//k = (int)key - 48;
+		ModMenu((int)key - 48);
+		break;
 	case 'q':		
 		glutLeaveMainLoop();
 		break;
@@ -254,6 +294,55 @@ void cleanUp(void) {
 #include "./models/mesh_teapot.h"
 #include "./models/mesh_triceratops.h"
 
+void ModMenu(int k) {
+	int input;
+	object = meshList;
+	float x, y, z;
+	for (int i = 1; i < k && object->next != NULL; i++)
+	{
+		object = object->next;
+	}
+
+	printf("%s", object->name);
+	printf("\n1. Translation\n2. Scaling\n3. Rotation\n4. Exit\n");
+	fflush(stdin);
+	scanf("%d", &input);
+	switch (input) {
+	case 1:
+		printf("Enter translation x y z:");
+		scanf("%f %f %f", &x, &y, &z);
+
+		object->translation = { x,y,z };
+		printf("Tranlation updated\n");
+		break;
+	case 2:
+		printf("Enter scaling x y z:");
+		scanf("%f %f %f", &x, &y, &z);
+		object->scale = { x,y,z };
+		printf("Scale updated\n");
+		break;
+	case 3:
+		printf("Enter rotation x y z axis:");
+		scanf("%f %f %f", &x, &y, &z);
+		object->rotation = { x,y,z };
+		printf("Rotation updated\n");
+		break;
+	default:
+		break;
+	}
+}
+
+void printMenu()
+{
+	Mesh* mesh = meshList;
+	int n = 1;
+	while (mesh != NULL)
+	{
+		printf("%d. %s \n", n, mesh->name);
+		n++;
+		mesh = mesh->next;
+	}
+}
 
 int main(int argc, char **argv) {
 	
@@ -284,17 +373,17 @@ int main(int argc, char **argv) {
 
 	// Insert the 3D models you want in your scene here in a linked list of meshes
 	// Note that "meshList" is a pointer to the first mesh and new meshes are added to the front of the list	
-	//insertModel(&meshList, cow.nov, cow.verts, cow.nof, cow.faces, 20.0);
-	//insertModel(&meshList, triceratops.nov, triceratops.verts, triceratops.nof, triceratops.faces, 3.0);
-	//insertModel(&meshList, bunny.nov, bunny.verts, bunny.nof, bunny.faces, 60.0);	
-	//insertModel(&meshList, cube.nov, cube.verts, cube.nof, cube.faces, 5.0);
-	//insertModel(&meshList, frog.nov, frog.verts, frog.nof, frog.faces, 2.5);
-	insertModel(&meshList, knot.nov, knot.verts, knot.nof, knot.faces, 1.0);
-	//insertModel(&meshList, sphere.nov, sphere.verts, sphere.nof, sphere.faces, 12.0);
-	//insertModel(&meshList, teapot.nov, teapot.verts, teapot.nof, teapot.faces, 3.0);
-	
-	
+	insertModel(&meshList, cow.nov, cow.verts, cow.nof, cow.faces, 20.0, (char*)"Cow", { 10,0,0 }, { 0,90,0 }, { 1,1,1 });
+	insertModel(&meshList, triceratops.nov, triceratops.verts, triceratops.nof, triceratops.faces, 3.0, (char*)"Triceratops", { -25,0,0 }, { 60,0,0 }, { 1,1,1 });
+	/*insertModel(&meshList, bunny.nov, bunny.verts, bunny.nof, bunny.faces, 60.0, (char*)"Bunny");
+	insertModel(&meshList, cube.nov, cube.verts, cube.nof, cube.faces, 5.0,(char*)"Cube");
+	insertModel(&meshList, frog.nov, frog.verts, frog.nof, frog.faces, 2.5,(char*)"Frog");
+	insertModel(&meshList, knot.nov, knot.verts, knot.nof, knot.faces, 1.0,(char*)"Knot");
+	insertModel(&meshList, sphere.nov, sphere.verts, sphere.nof, sphere.faces, 12.0,(char*)"Sphere");
+	insertModel(&meshList, teapot.nov, teapot.verts, teapot.nof, teapot.faces, 3.0,(char*)"Teapot");*/
+	object = meshList;
 	init();
+	printMenu();
 	glutMainLoop();
 
 	cleanUp();	
