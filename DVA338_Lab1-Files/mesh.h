@@ -16,6 +16,9 @@ typedef struct _Mesh {
 	Vector rotation;
 	Vector scale;
 	Vector translation;
+	Vector ka;
+	Vector kd;
+	Vector ks;
 	struct _Mesh *next; 
 	char* name;
 	unsigned int vbo, ibo, vao; // OpenGL handles for rendering

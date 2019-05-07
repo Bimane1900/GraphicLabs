@@ -10,15 +10,18 @@
 #include "mesh.h"
 void ModMenu(int k);
 
+#define ShaderSize 3000
+
 int screen_width = 1024;
 int screen_height = 768;
 
 
 Mesh *meshList = NULL; // Global pointer to linked list of triangle meshes
 Mesh* object = NULL;
+Mesh* Cube = NULL;
 Camera cam = {{0,0,20}, {0,0,0}, 60, 1, 10000}; // Setup the global camera parameters
 
-
+Vector light = { 1,1,1 };
 GLuint shprg; // Shader program id
 
 
@@ -29,31 +32,47 @@ GLuint shprg; // Shader program id
 Matrix V, P, PV;
 
 
-void prepareShaderProgram(const char ** vs_src, const char ** fs_src) {
+void prepareShaderProgram(char vs_src[ShaderSize], char fs_src[ShaderSize])/*(const char ** vs_src, const char ** fs_src)*/ {
+	//printf("inprep vs_src: \n%s\n", vs_src);
+	//printf("inprer fs_src: \n%s\n", fs_src);
+	
 	GLint success = GL_FALSE;
-
+	char info[512];
 	shprg = glCreateProgram();
 
 	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vs, 1, vs_src, NULL);
+	glShaderSource(vs, 1, &vs_src, NULL);
 	glCompileShader(vs);
 	glGetShaderiv(vs, GL_COMPILE_STATUS, &success);	
-	if (!success) printf("Error in vertex shader!\n");
+	if (!success) {
+		printf("Error in vertex shader!\n");
+		glGetShaderInfoLog(vs, 512, NULL, info);
+		printf("%s\n", info);
+	}
 	else printf("Vertex shader compiled successfully!\n");
 
 	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fs, 1, fs_src, NULL);
+	glShaderSource(fs, 1, &fs_src, NULL);
 	glCompileShader(fs);
 	glGetShaderiv(fs, GL_COMPILE_STATUS, &success);	
-	if (!success) printf("Error in fragment shader!\n");
+	if (!success) {
+		printf("Error in fragment shader!\n");
+		glGetShaderInfoLog(fs, 512, NULL, info);
+		printf("%s\n", info);
+	}
 	else printf("Fragment shader compiled successfully!\n");
+	
 
 	glAttachShader(shprg, vs);
 	glAttachShader(shprg, fs);
 	glLinkProgram(shprg);
 	GLint isLinked = GL_FALSE;
 	glGetProgramiv(shprg, GL_LINK_STATUS, &isLinked);
-	if (!isLinked) printf("Link error in shader program!\n");
+	if (!isLinked) {
+		printf("Link error in shader program!\n");
+		glGetProgramInfoLog(shprg, 512, NULL, info);
+		printf("%s\n", info);
+	}
 	else printf("Shader program linked successfully!\n");
 }
 
@@ -88,6 +107,8 @@ void prepareMesh(Mesh *mesh) {
 	glEnableVertexAttribArray(vNorm);
 	glVertexAttribPointer(vNorm, 3, GL_FLOAT, GL_FALSE, 0, (void *)(mesh->nv * 3 *sizeof(float)));
 
+	
+
 	glBindVertexArray(0);
 
 }
@@ -108,6 +129,14 @@ void renderMesh(Mesh *mesh) {
 	GLint loc_PV = glGetUniformLocation(shprg, "PV");
 	glUniformMatrix4fv(loc_PV, 1, GL_FALSE, M.e);
 
+	GLint loc_W = glGetUniformLocation(shprg, "M");
+	glUniformMatrix4fv(loc_W, 1, GL_FALSE, W.e);
+
+	GLint light_LOC = glGetUniformLocation(shprg, "light");
+	glUniform3f(light_LOC, light.x, light.y, light.z);
+
+	GLint loc_V = glGetUniformLocation(shprg, "view");
+	glUniform3f(loc_V, cam.position.x, cam.position.y, cam.position.z);
 	
 	// Select current resources 
 	glBindVertexArray(mesh->vao);
@@ -166,11 +195,35 @@ void changeSize(int w, int h) {
 	screen_width = w;
 	screen_height = h;
 	glViewport(0, 0, screen_width, screen_height);
-
+	
 }
 void keypress(unsigned char key, int x, int y) {
 	//int k, input = 0;
 	switch(key) {
+	case 'e':
+		light.x += 0.6f;
+		object->translation.x += 0.6f;
+		break;
+	case 'E':
+		light.x -= 0.6f;
+		object->translation.x -= 0.6f;
+		break;
+	case 'w':
+		light.y += 0.6f;
+		object->translation.y += 0.6f;
+		break;
+	case 'W':
+		light.y -= 0.6f;
+		object->translation.y -= 0.6f;
+		break;
+	case 'r':
+		light.x += 0.6f;
+		object->translation.z += 0.6f;
+		break;
+	case 'R':
+		light.x -= 0.6f;
+		object->translation.z -= 0.6f;
+		break;
 	case 'z':
 		cam.position.z -= 0.6f;
 		break;
@@ -263,25 +316,32 @@ void keypress(unsigned char key, int x, int y) {
 	glutPostRedisplay();
 }
 
-const char ** readShader(char * filename) {
+char * readShader(char * filename) {
 	FILE * f;
-	const char *shdcode = (char*)calloc(1000, sizeof 'a');
+	//const char *shdcode = (char*)calloc(1000, sizeof 'a');
+	char code[ShaderSize] = "\0";
 	f = fopen(filename, "r");
 	if (f == NULL) {
 		perror("Error opening file");
-		
 	}
 	char file[200];
-	while (fgets(file, 199, f) != NULL) { strcat((char*)shdcode, file); };
+	while (fgets(file, 199, f) != NULL) { strcat(code, file); };
 	fclose(f);
-	printf("%s", shdcode);
-	return &shdcode;
+	//printf("%s", shdcode);
+	return code;
 
 }
 
 void init(void) {
 	// Compile and link the given shader program (vertex shader and fragment shader)
-	prepareShaderProgram(readShader((char*)"shader1.txt"), fs_ci_src); 
+	char vsShad[ShaderSize];//= readShader((char*)"ShaderTest.txt");
+		strcpy(vsShad, readShader((char*)"ShaderTest.txt"));
+		char fsShad[ShaderSize];
+	strcpy(fsShad, readShader((char*)"FragShader1.txt"));
+	//printf("ShaderTest print: %s\n", readShader((char*)"ShaderTest.txt"));
+	//printf("in init fsShad %s . \n", *fsShad);
+	//printf("in init vsShad %s . \n", *vsShad);
+	prepareShaderProgram(vsShad, fsShad);
 	glEnable(GL_DEPTH_TEST);
 
 	// Setup OpenGL buffers for rendering of the meshes
@@ -392,13 +452,13 @@ int main(int argc, char **argv) {
 	// Insert the 3D models you want in your scene here in a linked list of meshes
 	// Note that "meshList" is a pointer to the first mesh and new meshes are added to the front of the list	
 	insertModel(&meshList, cow.nov, cow.verts, cow.nof, cow.faces, 20.0, (char*)"Cow", { 10,0,0 }, { 0,90,0 }, { 1,1,1 });
-	insertModel(&meshList, triceratops.nov, triceratops.verts, triceratops.nof, triceratops.faces, 3.0, (char*)"Triceratops", { -25,0,0 }, { 60,0,0 }, { 1,1,1 });
-	/*insertModel(&meshList, bunny.nov, bunny.verts, bunny.nof, bunny.faces, 60.0, (char*)"Bunny");
-	insertModel(&meshList, cube.nov, cube.verts, cube.nof, cube.faces, 5.0,(char*)"Cube");
-	insertModel(&meshList, frog.nov, frog.verts, frog.nof, frog.faces, 2.5,(char*)"Frog");
-	insertModel(&meshList, knot.nov, knot.verts, knot.nof, knot.faces, 1.0,(char*)"Knot");
-	insertModel(&meshList, sphere.nov, sphere.verts, sphere.nof, sphere.faces, 12.0,(char*)"Sphere");
-	insertModel(&meshList, teapot.nov, teapot.verts, teapot.nof, teapot.faces, 3.0,(char*)"Teapot");*/
+	//insertModel(&meshList, triceratops.nov, triceratops.verts, triceratops.nof, triceratops.faces, 3.0, (char*)"Triceratops", { -25,0,0 }, { 60,0,0 }, { 1,1,1 });
+	//insertModel(&meshList, bunny.nov, bunny.verts, bunny.nof, bunny.faces, 60.0, (char*)"Bunny");
+	insertModel(&meshList, cube.nov, cube.verts, cube.nof, cube.faces, 5.0, (char*)"Cube", { 0,0,0 }, { 0,0,0 }, { 0.1,0.1,0.1 });
+	//insertModel(&meshList, frog.nov, frog.verts, frog.nof, frog.faces, 2.5,(char*)"Frog");
+	//insertModel(&meshList, knot.nov, knot.verts, knot.nof, knot.faces, 1.0,(char*)"Knot");
+	//insertModel(&meshList, sphere.nov, sphere.verts, sphere.nof, sphere.faces, 12.0,(char*)"Sphere");
+	//insertModel(&meshList, teapot.nov, teapot.verts, teapot.nof, teapot.faces, 3.0,(char*)"Teapot");
 	object = meshList;
 
 	init();
