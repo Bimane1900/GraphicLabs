@@ -51,10 +51,11 @@ void insertModel(Mesh **list, int nv, float * vArr, int nt, int * tArr, float sc
 				temp1 = Subtract(mesh->vertices[y], mesh->vertices[x]);
 				temp2 = Subtract(mesh->vertices[z], mesh->vertices[x]);
 				v1 = CrossProduct(temp1,temp2);
-				v2 = Add(v2, v1);
+				v2 = Add(v2, { v1.x,v1.y,v1.z });
 			}
 		}
 		v2 = Normalize(v2);
+		v2 = { v2.x,v2.y,v2.z };
 		mesh->vnorms[i] = v2;
 	}
 

@@ -10,7 +10,8 @@
 #include "mesh.h"
 void ModMenu(int k);
 
-#define ShaderSize 3000
+#define ShaderSize 9000
+#define NumLights 2
 
 int screen_width = 1024;
 int screen_height = 768;
@@ -19,12 +20,35 @@ int screen_height = 768;
 Mesh *meshList = NULL; // Global pointer to linked list of triangle meshes
 Mesh* object = NULL;
 Mesh* Cube = NULL;
-Camera cam = {{0,0,20}, {0,0,0}, 60, 1, 10000}; // Setup the global camera parameters
-
-Vector light = { 1,1,1 };
-GLuint shprg; // Shader program id
+Camera cam = { {0,0,20}, {0,0,0}, 60, 1, 10000 }; // Setup the global camera parameters
 
 
+GLuint shprg[3]; // Shader program id
+
+int selectedIndex = -1;
+
+
+//int Mutplelights = NumLights;
+
+//Models
+Vector ambient = { 0.0, 0.5, 0.0 };
+Vector diffuse = { 0.0, 0.7, 0.0 };
+Vector specular = { 1.0, 1.0, 1.0 };
+int shininess = 16;
+
+
+
+
+//Light's 
+Vector light = { 10.0, 0.0, 10.0 };//position
+Vector Iambient = { 0.2, 0.2, 0.2 };
+Vector Idiffuse = { 0.5, 0.5, 0.5 };
+Vector Ispecular = {1.0, 1.0, 1.0 };
+
+Vector light2 = { -9.8, 5.4, 2.2 };//position
+Vector Iambient2 = { 0.2, 0.2, 0.2 };
+Vector Idiffuse2 = { 0.5, 0.5, 0.5 };
+Vector Ispecular2 = { 1.0, 1.0, 1.0 };
 // Global transform matrices
 // V is the view transform
 // P is the projection transform
@@ -35,15 +59,15 @@ Matrix V, P, PV;
 void prepareShaderProgram(char vs_src[ShaderSize], char fs_src[ShaderSize])/*(const char ** vs_src, const char ** fs_src)*/ {
 	//printf("inprep vs_src: \n%s\n", vs_src);
 	//printf("inprer fs_src: \n%s\n", fs_src);
-	
+	selectedIndex++;
 	GLint success = GL_FALSE;
 	char info[512];
-	shprg = glCreateProgram();
+	shprg[selectedIndex] = glCreateProgram();
 
 	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vs, 1, &vs_src, NULL);
 	glCompileShader(vs);
-	glGetShaderiv(vs, GL_COMPILE_STATUS, &success);	
+	glGetShaderiv(vs, GL_COMPILE_STATUS, &success);
 	if (!success) {
 		printf("Error in vertex shader!\n");
 		glGetShaderInfoLog(vs, 512, NULL, info);
@@ -54,23 +78,23 @@ void prepareShaderProgram(char vs_src[ShaderSize], char fs_src[ShaderSize])/*(co
 	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(fs, 1, &fs_src, NULL);
 	glCompileShader(fs);
-	glGetShaderiv(fs, GL_COMPILE_STATUS, &success);	
+	glGetShaderiv(fs, GL_COMPILE_STATUS, &success);
 	if (!success) {
 		printf("Error in fragment shader!\n");
 		glGetShaderInfoLog(fs, 512, NULL, info);
 		printf("%s\n", info);
 	}
 	else printf("Fragment shader compiled successfully!\n");
-	
 
-	glAttachShader(shprg, vs);
-	glAttachShader(shprg, fs);
-	glLinkProgram(shprg);
+
+	glAttachShader(shprg[selectedIndex], vs);
+	glAttachShader(shprg[selectedIndex], fs);
+	glLinkProgram(shprg[selectedIndex]);
 	GLint isLinked = GL_FALSE;
-	glGetProgramiv(shprg, GL_LINK_STATUS, &isLinked);
+	glGetProgramiv(shprg[selectedIndex], GL_LINK_STATUS, &isLinked);
 	if (!isLinked) {
 		printf("Link error in shader program!\n");
-		glGetProgramInfoLog(shprg, 512, NULL, info);
+		glGetProgramInfoLog(shprg[selectedIndex], 512, NULL, info);
 		printf("%s\n", info);
 	}
 	else printf("Shader program linked successfully!\n");
@@ -78,9 +102,9 @@ void prepareShaderProgram(char vs_src[ShaderSize], char fs_src[ShaderSize])/*(co
 
 void prepareMesh(Mesh *mesh) {
 	int sizeVerts = mesh->nv * 3 * sizeof(float);
-	int sizeCols  = mesh->nv * 3 * sizeof(float);
+	int sizeCols = mesh->nv * 3 * sizeof(float);
 	int sizeTris = mesh->nt * 3 * sizeof(int);
-	
+
 	// For storage of state and other buffer objects needed for vertex specification
 	glGenVertexArrays(1, &mesh->vao);
 	glBindVertexArray(mesh->vao);
@@ -97,24 +121,22 @@ void prepareMesh(Mesh *mesh) {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeTris, (void *)mesh->triangles, GL_STATIC_DRAW);
 
-	// Define the format of the vertex data
-	GLint vPos = glGetAttribLocation(shprg, "vPos");
+	//Define the format of the vertex data
+	GLint vPos = glGetAttribLocation(shprg[selectedIndex], "vPos");
 	glEnableVertexAttribArray(vPos);
 	glVertexAttribPointer(vPos, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
 	// Define the format of the vertex data 
-	GLint vNorm = glGetAttribLocation(shprg, "vNorm");
+	GLint vNorm = glGetAttribLocation(shprg[selectedIndex], "vNorm");
 	glEnableVertexAttribArray(vNorm);
-	glVertexAttribPointer(vNorm, 3, GL_FLOAT, GL_FALSE, 0, (void *)(mesh->nv * 3 *sizeof(float)));
-
-	
+	glVertexAttribPointer(vNorm, 3, GL_FLOAT, GL_FALSE, 0, (void *)(mesh->nv * 3 * sizeof(float)));
 
 	glBindVertexArray(0);
 
 }
 
 void renderMesh(Mesh *mesh) {
-	
+
 	// Assignment 1: Apply the transforms from local mesh coordinates to world coordinates here
 	// Combine it with the viewing transform that is passed to the shader below
 	Matrix S = CreateScaling(mesh->scale.x, mesh->scale.y, mesh->scale.z);
@@ -124,38 +146,92 @@ void renderMesh(Mesh *mesh) {
 	Matrix T = CreateTranslation(mesh->translation);
 	Matrix W = MatMatMul(T, MatMatMul(Rx, MatMatMul(Ry, MatMatMul(Rz, S))));
 	Matrix M = MatMatMul(PV, W);
-	
-	// Pass the viewing transform to the shader
-	GLint loc_PV = glGetUniformLocation(shprg, "PV");
-	glUniformMatrix4fv(loc_PV, 1, GL_FALSE, M.e);
 
-	GLint loc_W = glGetUniformLocation(shprg, "M");
+	// Pass the viewing transform to the shader
+	GLint loc_PV = glGetUniformLocation(shprg[selectedIndex], "PV");
+	glUniformMatrix4fv(loc_PV, 1, GL_FALSE, M.e);
+	Matrix VM = MatMatMul(V, W);
+	GLint loc_W = glGetUniformLocation(shprg[selectedIndex], "VM");
 	glUniformMatrix4fv(loc_W, 1, GL_FALSE, W.e);
 
-	GLint light_LOC = glGetUniformLocation(shprg, "light");
-	glUniform3f(light_LOC, light.x, light.y, light.z);
+	//GLint light_LOC = glGetUniformLocation(shprg[selectedIndex], "light");
+	//glUniform3f(light_LOC, light.x, light.y, light.z);
 
-	GLint loc_V = glGetUniformLocation(shprg, "view");
-	glUniform3f(loc_V, cam.position.x, cam.position.y, cam.position.z);
-	
+	//GLint loc_V = glGetUniformLocation(shprg[selectedIndex], "view");
+	//glUniform3f(loc_V, cam.position.x, cam.position.y, cam.position.z);
+
 	// Select current resources 
 	glBindVertexArray(mesh->vao);
-	
+
 	// To accomplish wireframe rendering (can be removed to get filled triangles)
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); 
-	
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
 	// Draw all triangles
-	glDrawElements(GL_TRIANGLES, mesh->nt * 3, GL_UNSIGNED_INT, NULL); 
+	glDrawElements(GL_TRIANGLES, mesh->nt * 3, GL_UNSIGNED_INT, NULL);
 	glBindVertexArray(0);
+
+	//viewPos
+
+	GLint loc_viewPos = glGetUniformLocation(shprg[selectedIndex], "viewPos");
+	glUniform3f(loc_viewPos, cam.position.x, cam.position.y, cam.position.z);
+	
+
+	//light
+	GLint loc_lightPostion = glGetUniformLocation(shprg[selectedIndex], "lightP");
+	glUniform3f(loc_lightPostion, light.x, light.y, light.z);
+
+	GLint loc_lightAmbient = glGetUniformLocation(shprg[selectedIndex], "Iambient");
+	glUniform3f(loc_lightAmbient, Iambient.x, Iambient.y, Iambient.z);
+
+	GLint loc_lightDiffuse = glGetUniformLocation(shprg[selectedIndex], "Idiffuse");
+	glUniform3f(loc_lightDiffuse, Idiffuse.x, Idiffuse.y, Idiffuse.z);
+
+	GLint loc_lightSpecular = glGetUniformLocation(shprg[selectedIndex], "Ispecular");
+	glUniform3f(loc_lightSpecular, Ispecular.x, Ispecular.y, Ispecular.z);
+
+
+	//light2
+	GLint loc_lightPostion2 = glGetUniformLocation(shprg[selectedIndex], "lightP2");
+	glUniform3f(loc_lightPostion2, light2.x, light2.y, light2.z);
+
+	GLint loc_lightAmbient2 = glGetUniformLocation(shprg[selectedIndex], "Iambient2");
+	glUniform3f(loc_lightAmbient2, Iambient2.x, Iambient2.y, Iambient2.z);
+	
+	GLint loc_lightDiffuse2 = glGetUniformLocation(shprg[selectedIndex], "Idiffuse2");
+	glUniform3f(loc_lightDiffuse2, Idiffuse2.x, Idiffuse2.y, Idiffuse2.z);
+
+	GLint loc_lightSpecular2 = glGetUniformLocation(shprg[selectedIndex], "Ispecular2");
+	glUniform3f(loc_lightSpecular2, Ispecular2.x, Ispecular2.y, Ispecular2.z);
+
+
+	// material
+	GLint loc_meshAmbient = glGetUniformLocation(shprg[selectedIndex], "Matambient");
+	glUniform3f(loc_meshAmbient, ambient.x, ambient.y, ambient.z);
+	
+	GLint loc_meshDiffuse = glGetUniformLocation(shprg[selectedIndex], "Matdiffuse");
+	glUniform3f(loc_meshDiffuse, diffuse.x, diffuse.y, diffuse.z);
+
+	GLint loc_meshSpecular = glGetUniformLocation(shprg[selectedIndex], "Matspecular");
+	glUniform3f(loc_meshSpecular, specular.x, specular.y, specular.z);
+	
+	GLint loc_meshShininess = glGetUniformLocation(shprg[selectedIndex], "shininess");
+	glUniform1i(loc_meshShininess, shininess);
+
+
+	GLint loc_multiLights = glGetUniformLocation(shprg[selectedIndex], "Mutplelights");
+	glUniform1i(loc_multiLights, NumLights);
+
+
+
 }
 
 
 
 void display(void) {
 	Mesh *mesh;
-	
-	glClear(GL_DEPTH_BUFFER_BIT+GL_COLOR_BUFFER_BIT);
-		
+
+	glClear(GL_DEPTH_BUFFER_BIT + GL_COLOR_BUFFER_BIT);
+
 	// Assignment 1: Calculate the transform to view coordinates yourself 	
 	// The matrix V should be calculated from camera parameters
 	// Therefore, you need to replace this hard-coded transform. 
@@ -165,7 +241,7 @@ void display(void) {
 	Matrix Ry = CreateRotation(-cam.rotation.y, 'y');
 	Matrix Rz = CreateRotation(-cam.rotation.z, 'z');
 	V = MatMatMul(Rz, MatMatMul(Ry, MatMatMul(Rx, T)));
-	
+
 
 	// Assignment 1: Calculate the projection transform yourself 	
 	// The matrix P should be calculated from camera parameters
@@ -173,17 +249,17 @@ void display(void) {
 
 	//P = OrthogonalProj({ -20,-10,1 }, { 20,10,1000 });
 	P = PerspectiveProj2(cam.fov, (float)screen_width / (float)screen_height, cam.nearPlane, cam.farPlane);
-	
+
 
 	// This finds the combined view-projection matrix
 	PV = MatMatMul(P, V);
 
 	// Select the shader program to be used during rendering 
-	glUseProgram(shprg);
+	glUseProgram(shprg[selectedIndex]);
 
 	// Render all meshes in the scene
 	mesh = meshList;
-		
+
 	while (mesh != NULL) {
 		renderMesh(mesh);
 		mesh = mesh->next;
@@ -195,33 +271,51 @@ void changeSize(int w, int h) {
 	screen_width = w;
 	screen_height = h;
 	glViewport(0, 0, screen_width, screen_height);
-	
+
 }
 void keypress(unsigned char key, int x, int y) {
 	//int k, input = 0;
-	switch(key) {
+	switch (key) {
+	case 'l':
+		if (selectedIndex < 2)
+		{
+			selectedIndex++;
+		}
+		break;
+	case 'L':
+		if (selectedIndex > 0)
+		{
+			selectedIndex--;
+		}
+		break;
 	case 'e':
 		light.x += 0.6f;
+		//PrintVector((char*)"light", light);
 		object->translation.x += 0.6f;
 		break;
 	case 'E':
 		light.x -= 0.6f;
+		//PrintVector((char*)"light", light);
 		object->translation.x -= 0.6f;
 		break;
 	case 'w':
 		light.y += 0.6f;
+		//PrintVector((char*)"light", light);
 		object->translation.y += 0.6f;
 		break;
 	case 'W':
 		light.y -= 0.6f;
+		//PrintVector((char*)"light", light);
 		object->translation.y -= 0.6f;
 		break;
 	case 'r':
-		light.x += 0.6f;
+		light.z += 0.6f;
+		//PrintVector((char*)"light", light);
 		object->translation.z += 0.6f;
 		break;
 	case 'R':
-		light.x -= 0.6f;
+		light.z -= 0.6f;
+		//PrintVector((char*)"light", light);
 		object->translation.z -= 0.6f;
 		break;
 	case 'z':
@@ -283,7 +377,7 @@ void keypress(unsigned char key, int x, int y) {
 		{
 			object = meshList;
 		}
-		else 
+		else
 		{
 			object = object->next;
 		}
@@ -308,11 +402,11 @@ void keypress(unsigned char key, int x, int y) {
 		//k = (int)key - 48;
 		ModMenu((int)key - 48);
 		break;
-	case 'q':		
+	case 'q':
 		glutLeaveMainLoop();
 		break;
 	}
-	
+
 	glutPostRedisplay();
 }
 
@@ -323,25 +417,32 @@ char * readShader(char * filename) {
 	f = fopen(filename, "r");
 	if (f == NULL) {
 		perror("Error opening file");
+		//exit(EXIT_FAILURE);
 	}
-	char file[200];
-	while (fgets(file, 199, f) != NULL) { strcat(code, file); };
+	char file[199];
+	while (fgets(file, 199, f) != NULL)
+	{
+		strcat(code, file);
+	};
 	fclose(f);
-	//printf("%s", shdcode);
 	return code;
 
 }
 
 void init(void) {
 	// Compile and link the given shader program (vertex shader and fragment shader)
-	char vsShad[ShaderSize];//= readShader((char*)"ShaderTest.txt");
-		strcpy(vsShad, readShader((char*)"ShaderTest.txt"));
-		char fsShad[ShaderSize];
-	strcpy(fsShad, readShader((char*)"FragShader1.txt"));
-	//printf("ShaderTest print: %s\n", readShader((char*)"ShaderTest.txt"));
-	//printf("in init fsShad %s . \n", *fsShad);
-	//printf("in init vsShad %s . \n", *vsShad);
+	char vsShad[ShaderSize];
+	char fsShad[ShaderSize];
+	strcpy_s(vsShad, readShader((char*)"./GouradVertex.txt"));
+	strcpy_s(fsShad, readShader((char*)"./GouradFrag.txt"));
 	prepareShaderProgram(vsShad, fsShad);
+	strcpy_s(vsShad, readShader((char*)"./PhongVertex.txt"));
+	strcpy_s(fsShad, readShader((char*)"./PhongFrag.txt"));
+	prepareShaderProgram(vsShad, fsShad);
+	strcpy_s(vsShad, readShader((char*)"./CartoonVertex.txt"));
+	strcpy_s(fsShad, readShader((char*)"./CartoonFrag.txt"));
+	prepareShaderProgram(vsShad, fsShad);
+
 	glEnable(GL_DEPTH_TEST);
 
 	// Setup OpenGL buffers for rendering of the meshes
@@ -349,10 +450,10 @@ void init(void) {
 	while (mesh != NULL) {
 		prepareMesh(mesh);
 		mesh = mesh->next;
-	}	
+	}
 }
 
-void cleanUp(void) {	
+void cleanUp(void) {
 	printf("Running cleanUp function... ");
 	// Free openGL resources
 	// ...
@@ -423,10 +524,10 @@ void printMenu()
 }
 
 int main(int argc, char **argv) {
-	
+
 	// Setup freeGLUT	
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize(screen_width, screen_height);
 	glutCreateWindow("DVA338 Programming Assignments");
 	glutDisplayFunc(display);
@@ -440,7 +541,7 @@ int main(int argc, char **argv) {
 	glutInitContextProfile(GLUT_CORE_PROFILE);
 
 	// Uses GLEW as OpenGL Loading Library to get access to modern core features as well as extensions
-	GLenum err = glewInit(); 
+	GLenum err = glewInit();
 	if (GLEW_OK != err) { fprintf(stdout, "Error: %s\n", glewGetErrorString(err)); return 1; }
 
 	// Output OpenGL version info
@@ -448,23 +549,27 @@ int main(int argc, char **argv) {
 	fprintf(stdout, "OpenGL version: %s\n", (const char *)glGetString(GL_VERSION));
 	fprintf(stdout, "OpenGL vendor: %s\n\n", glGetString(GL_VENDOR));
 
-
 	// Insert the 3D models you want in your scene here in a linked list of meshes
 	// Note that "meshList" is a pointer to the first mesh and new meshes are added to the front of the list	
-	insertModel(&meshList, cow.nov, cow.verts, cow.nof, cow.faces, 20.0, (char*)"Cow", { 10,0,0 }, { 0,90,0 }, { 1,1,1 });
+	//insertModel(&meshList, cow.nov, cow.verts, cow.nof, cow.faces, 20.0, (char*)"Cow", { 0,0,0 }, { 0,-45,0 }, { 1,1,1 });
 	//insertModel(&meshList, triceratops.nov, triceratops.verts, triceratops.nof, triceratops.faces, 3.0, (char*)"Triceratops", { -25,0,0 }, { 60,0,0 }, { 1,1,1 });
 	//insertModel(&meshList, bunny.nov, bunny.verts, bunny.nof, bunny.faces, 60.0, (char*)"Bunny");
-	insertModel(&meshList, cube.nov, cube.verts, cube.nof, cube.faces, 5.0, (char*)"Cube", { 0,0,0 }, { 0,0,0 }, { 0.1,0.1,0.1 });
+	
 	//insertModel(&meshList, frog.nov, frog.verts, frog.nof, frog.faces, 2.5,(char*)"Frog");
-	//insertModel(&meshList, knot.nov, knot.verts, knot.nof, knot.faces, 1.0,(char*)"Knot");
+	insertModel(&meshList, knot.nov, knot.verts, knot.nof, knot.faces, 1.0,(char*)"Knot");
 	//insertModel(&meshList, sphere.nov, sphere.verts, sphere.nof, sphere.faces, 12.0,(char*)"Sphere");
 	//insertModel(&meshList, teapot.nov, teapot.verts, teapot.nof, teapot.faces, 3.0,(char*)"Teapot");
-	object = meshList;
 
+	insertModel(&meshList, cube.nov, cube.verts, cube.nof, cube.faces, 5.0, (char*)"Cube", light, { 0,0,0 }, { 0.1,0.1,0.1 });
+	if (NumLights == 2)
+	{
+		insertModel(&meshList, cube.nov, cube.verts, cube.nof, cube.faces, 5.0, (char*)"Cube", light2, { 0,0,0 }, { 0.1,0.1,0.1 });
+	}
+	object = meshList;
 	init();
 	printMenu();
 	glutMainLoop();
 
-	cleanUp();	
+	cleanUp();
 	return 0;
 }

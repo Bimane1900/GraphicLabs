@@ -1,0 +1,78 @@
+#version 420 core 
+
+in vec3 vPos;
+in vec3 vNorm;
+out vec4 color;
+uniform mat4 PV;
+uniform vec3 lightP;
+uniform vec3 lightP2;
+
+uniform vec3 Matambient; 
+uniform vec3 Matdiffuse;
+uniform vec3 Matspecular; 
+uniform int shininess;
+
+uniform vec3 Iambient;
+uniform vec3 Idiffuse;
+uniform vec3 Ispecular;
+
+uniform vec3 Iambient2;
+uniform vec3 Idiffuse2;
+uniform vec3 Ispecular2;
+uniform mat4 VM;
+
+uniform vec3 viewPos;
+
+
+out vec3 vNormFrag;
+out vec3 vPosFrag;
+
+uniform int Mutplelights;
+
+vec3 calcLight(vec3 normal, vec3 lightAmbiance,vec3 lightDiffuse,vec3 lightSpecular, vec3 lightPos)
+{
+
+    //ambiance
+    vec3 ambient = Matambient * lightAmbiance;
+    //diffuse
+    vec3 norm = normalize(normal);
+    vec3 vertPos = vec3(VM * vec4(vPos, 1.0));
+    //lightPos = vec3((PV*vec4(lightPos,1.0)).xyz);
+    vec3 lightDir = normalize(lightPos - vertPos);
+    float diff = max(dot(norm, lightDir), 0.0);
+    vec3 diffuse = (diff * Matdiffuse) * lightDiffuse;
+    //Specular
+    vec3 viewDir = normalize(viewPos - vertPos);
+    vec3 reflectDir = 2*dot(lightDir, norm)*norm - lightDir;
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
+    vec3 specular = (Matspecular * spec) * lightSpecular;
+
+    vec3 lighting = (ambient + diffuse + specular);
+
+    return lighting;
+}
+
+
+void main(void)                                                   
+{                                                                 
+    gl_Position = PV * vec4(vPos, 1.0f);
+
+    // vec3 norm = mat3(transpose(inverse(PV))) *vNorm;
+    // vec3 norm = vec3(modelMatrix * vec4(vNorm, 1.0f));
+    vec3 norm = mat3(transpose(inverse(VM))) * vNorm; //Check this if it doesnt look right
+    if(Mutplelights == 2) 
+    {
+        vec3 temp = vec3(0.0f);
+        temp += calcLight(norm,Iambient,Idiffuse,Ispecular,lightP);
+        temp += calcLight(norm,Iambient2,Idiffuse2,Ispecular2,lightP2);
+        color = vec4(temp,1.0f);
+    }
+    else
+    {
+      
+        vec3 temp = vec3(0.0f);
+        temp = calcLight(norm,Iambient,Idiffuse,Ispecular,lightP);
+        color = vec4(temp,1.0f);
+    }
+        
+}

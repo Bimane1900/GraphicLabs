@@ -1,0 +1,55 @@
+#version 420 core
+
+
+in vec4 color;
+out vec4 fColor;
+in vec3 vNormFrag;
+in vec3 vPosFrag;
+
+uniform mat4 VM;
+uniform vec3 lightP;
+uniform vec3 lightP2;
+
+uniform mat4 PV;
+ 
+uniform int shininess;
+
+uniform int Mutplelights;
+
+
+vec4 cartoon(vec3 light)
+{
+  float intensity;
+  vec4 color;
+
+  vec3 normal = normalize(vNormFrag);
+  vec3 vertPos = vec3(VM * vec4(vPosFrag, 1.0));//dis
+  vec3 lightDir = normalize(light - vertPos);
+
+	intensity = dot(lightDir,normal);
+
+	if (intensity > 0.80)
+		color = vec4(0.0,1.0,1.0,1.0);
+	else if (intensity > 0.60)
+		color = vec4(0.0,0.8,0.8,1.0);
+  else if(intensity > 40)
+    color = vec4(0.0,0.6,0.6,1.0);
+	else if (intensity > 0.20)
+		color = vec4(0.0,0.4,0.4,1.0);
+	else
+		color = vec4(0.0,0.2,0.2,1.0);
+	return color;
+}
+
+void main(void)
+{
+        if(Mutplelights == 2){
+          vec4 temp;
+          temp += cartoon(lightP);
+          temp += cartoon(lightP2);
+          fColor = temp;
+        }
+        else{
+          fColor = cartoon(lightP);
+        }
+}

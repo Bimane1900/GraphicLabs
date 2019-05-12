@@ -1,0 +1,23 @@
+#version 420 core 
+
+in vec3 vPos;
+in vec3 vNorm;
+out vec4 color;
+uniform mat4 PV;
+
+uniform mat4 VM;
+
+out vec3 vNormFrag;
+out vec3 vPosFrag;
+
+uniform int Mutplelights;
+
+
+void main(void)                                                   
+{                                                                 
+    gl_Position = PV * vec4(vPos, 1.0f);
+    vec3 norm = mat3(transpose(inverse(VM))) * vNorm; //Check this if it doesnt look right
+    //color = abs(vec4(norm, 1.0));
+    vNormFrag = norm;
+    vPosFrag = vPos;
+}
