@@ -10,8 +10,9 @@
 #include "mesh.h"
 void ModMenu(int k);
 
+#define NoOfShaders 3
 #define ShaderSize 9000
-#define NumLights 2
+#define NumLights 1
 
 int screen_width = 1024;
 int screen_height = 768;
@@ -23,7 +24,7 @@ Mesh* Cube = NULL;
 Camera cam = { {0,0,20}, {0,0,0}, 60, 1, 10000 }; // Setup the global camera parameters
 
 
-GLuint shprg[3]; // Shader program id
+GLuint shprg[NoOfShaders]; // Shader program id
 
 int selectedIndex = -1;
 
@@ -433,7 +434,7 @@ void init(void) {
 	// Compile and link the given shader program (vertex shader and fragment shader)
 	char vsShad[ShaderSize];
 	char fsShad[ShaderSize];
-	strcpy_s(vsShad, readShader((char*)"./GouradVertex.txt"));
+	/*strcpy_s(vsShad, readShader((char*)"./GouradVertex.txt"));
 	strcpy_s(fsShad, readShader((char*)"./GouradFrag.txt"));
 	prepareShaderProgram(vsShad, fsShad);
 	strcpy_s(vsShad, readShader((char*)"./PhongVertex.txt"));
@@ -441,8 +442,15 @@ void init(void) {
 	prepareShaderProgram(vsShad, fsShad);
 	strcpy_s(vsShad, readShader((char*)"./CartoonVertex.txt"));
 	strcpy_s(fsShad, readShader((char*)"./CartoonFrag.txt"));
-	prepareShaderProgram(vsShad, fsShad);
-
+	prepareShaderProgram(vsShad, fsShad);*/
+	const char* Vert[NoOfShaders] = { "./GouradVertex.txt", "./PhongVertex.txt","./CartoonVertex.txt" };
+	const char* Frag[NoOfShaders] = { "./GouradFrag.txt", "./PhongFrag.txt","./CartoonFrag.txt" };
+	for (int i = 0; i < NoOfShaders; i++)
+	{
+		strcpy_s(vsShad, readShader((char*)Vert[i]));
+		strcpy_s(fsShad, readShader((char*)Frag[i]));
+		prepareShaderProgram(vsShad, fsShad);
+	}
 	glEnable(GL_DEPTH_TEST);
 
 	// Setup OpenGL buffers for rendering of the meshes
