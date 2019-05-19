@@ -9,6 +9,7 @@ public:
 	float tClip;	
 	static float rayEps;
 	static float tMax;
+	float reflectDepth = 0;
 public:
 	Ray() : tClip(tMax) { }	
 	Ray(const Vec3f & o, const Vec3f& d, float tclip = tMax) : o(o), d(d), tClip(tMax) { }
