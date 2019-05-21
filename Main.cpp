@@ -14,13 +14,13 @@ using namespace std;
 
 class Scene {
 public:
-	vector<Sphere> spheres;		
+	vector<Sphere> spheres;
 
 	Scene(void) {
-		 
+
 	}
 	void add(Sphere & s) {
-		spheres.push_back(s); 
+		spheres.push_back(s);
 		//cout << "Sphere added: " << "r = " << spheres[spheres.size()-1].r << endl;
 	}
 
@@ -32,7 +32,7 @@ public:
 
 
 void glSetPixel(int x, int y, Vec3f & c) {
-	glColor3f(c.r, c.g, c.b);
+	glColor3f(c.x, c.y, c.z);
 	glBegin(GL_POINTS);
 	glVertex2i(x, y);
 	glEnd();
@@ -41,7 +41,7 @@ void glSetPixel(int x, int y, Vec3f & c) {
 class Light {
 private:
 	Vec3f intensity = Vec3f(1.0f, 1.0f, 1.0f);
-	Vec3f position = Vec3f(-1.0f, -3.0f, -6.0f);
+	Vec3f position = Vec3f(0.0f, 0.0f, -3.0f);
 
 public:
 	Vec3f getIntensity() { return this->intensity; }
@@ -75,17 +75,16 @@ public:
 
 Camera cam;
 Light light;
-Sphere li = Sphere(light.getPosition(), 0.5f, Vec3f(1.0f,1.0f, 1.0f),Vec3f(0.0f, 0.0f, 0.0f));
+Sphere li = Sphere(light.getPosition(), 0.5f, Vec3f(1.0f, 1.0f, 1.0f), Vec3f(0.0f, 0.0f, 0.0f));
 
 
 
 
 class SimpleRayTracer {
-private: 
-	Scene * scene;
+private:
 	Image * image;
 	int reflectDepth = 0;
-	int reflectLimit = 3;
+	int reflectLimit = 1;
 	int reflectCount = 0;
 
 	Vec3f getEyeRayDirection(int x, int y) {
@@ -93,17 +92,30 @@ private:
 		static float z = -5.0f;		
 		static float sizeX = 4.0f; 
 		static float sizeY = 3.0f; 
+
 		
 		static float left = -sizeX * 0.5f;
 		static float bottom = -sizeY *0.5f;
 		static float dx =  sizeX / float(image->getWidth());  
 		static float dy =  sizeY / float(image->getHeight());
-	
+
 		return Vec3f(left + x * dx, bottom + y * dy, /*cam.getZ()*/z).normalize();
+
+		//int fov = 20;
+		//float M_PI = 3.14159;
+		//float ImageAspectRatio = float(image->getWidth()) / float(image->getHeight());
+		//float Px = (2 * ((x + 0.5) / float(image->getWidth())) - 1) * tan(fov / 2 * M_PI / 180) * ImageAspectRatio;
+		//float Py = (1 - 2 * ((y + 0.5) / float(image->getHeight()))) * tan(fov / 2 * M_PI / 180);
+		//Vec3f rayOrigin(0.0, 0.0, 0.0);
+		//Vec3f rayDirection = Vec3f(Px, Py, -1.0) - rayOrigin; // note that this just equal to Vec3f(Px, Py, -1); 
+		//return rayDirection.normalize();
+
 	}
 
 
 public:
+
+	Scene * scene;
 
 	int rayCount = 0;
 
@@ -112,128 +124,152 @@ public:
 		this->image = image;
 	}
 
-	void searchClosestHit(const Ray & ray, HitRec & hitRec) {
+	void searchAnyHit(const Ray & ray, HitRec & hitRec) {
 		for (int i = 0; i < scene->spheres.size(); i++) {
 			rayCount++;
-			scene->spheres[i].hit(ray, hitRec, i);
+			if (scene->spheres[i].hit(ray, hitRec)) return;
+
+
 		}
-		if(hitRec.anyHit)
-			scene->spheres[hitRec.primIndex].computeSurfaceHitFields(ray, hitRec);
+	}
+
+
+	//void searchClosestHit(const Ray & ray, HitRec & hitRec) {
+	//	for (int i = 0; i < scene->spheres.size(); i++) {
+	//		rayCount++;
+	//		scene->spheres[i].hit(ray, hitRec, i);
+
+
+
+	//	}
+
+	//	if (hitRec.anyHit)
+	//		scene->spheres[hitRec.primIndex].computeSurfaceHitFields(ray, hitRec);
+	//}
+
+	void searchClosestHit(const Ray & ray, HitRec & hit_rec) const {
+		hit_rec.anyHit = false;
+
+		for (auto i = 0; i < scene->spheres.size(); i++) {
+			if (scene->spheres[i].hit(ray, hit_rec))
+				hit_rec.primIndex = i;
+
+
+			// Get intersection point(p) and normal(n) for the closest hitting sphere
+			if (hit_rec.anyHit)
+				scene->spheres[hit_rec.primIndex].computeSurfaceHitFields(ray, hit_rec);
+		}
 	}
 
 	float max(float x, float y) { return x < y ? y : x; }
+	float min(float x, float y) { return x > y ? y : x; }
 
 	Vec3f phong(Ray  ray, HitRec hitRec) {
 		Sphere s = scene->spheres[hitRec.primIndex];
 		//s.computeSurfaceHitFields(ray, hitRec);
 		//Vec3f ambient = light.getIntensity().multCoordwise(s.ambient);
 		Vec3f L = (light.getPosition() - hitRec.p).normalize();
-		Vec3f diffuse = light.getIntensity().multCoordwise(s.diffuse) * max(hitRec.n.dot(L),0.0);
-		
+		Vec3f diffuse = light.getIntensity().multCoordwise(s.diffuse) * max(hitRec.n.dot(L), 0.0);
+
 		Vec3f R = (hitRec.n * (L.dot(hitRec.n)) * 2.0 - L).normalize();
 		Vec3f V = (cam.getPosition() - hitRec.p).normalize();
-		Vec3f specular = light.getIntensity().multCoordwise(s.specular) * pow(max((R.dot(V)),0.0), s.shiny);
+		Vec3f specular = light.getIntensity().multCoordwise(s.specular) * pow(max((R.dot(V)), 0.0), s.shiny);
 		return (diffuse + specular);
 	}
 
-	Vec3f lightning(Ray ray, HitRec  hitRec, Vec3f  color){
+
+	Vec3f lightning(Ray ray, HitRec  hitRec, Vec3f  color) {
 		Sphere s = scene->spheres[hitRec.primIndex];
 		Vec3f ambient = light.getIntensity().multCoordwise(s.ambient);
 		color += ambient;
 
 		HitRec ShadowR;
 		Ray ShadowRay;
-		ShadowRay.o = hitRec.p;// +Vec3f(ShadowRay.rayEps, ShadowRay.rayEps, ShadowRay.rayEps);
-		
-		//ShadowRay.incRayEps();
-		//ShadowRay.epsMoveStartAlongSurfaceNormal(hitRec.n);
-		
-		//if(hitRec.p.x  != hitRec.p.x)
-		//cout << "hitRec.p: " << hitRec.p.x << endl;
 		Vec3f LDir = (light.getPosition() - hitRec.p).normalize();
 		ShadowRay.d = LDir;
-		ShadowRay.epsMoveStartAlongDir();
+
+		ShadowRay.o = hitRec.p + (ShadowRay.d * ray.rayEps);
+
 		ShadowR.anyHit = false;
-		searchClosestHit(ShadowRay, ShadowR);
+		searchAnyHit(ShadowRay, ShadowR);
 		if (ShadowR.anyHit == false)
 		{
 			color += phong(ray, hitRec);
-		}		
+		}
 
 		if (reflectCount < reflectLimit) {
 			reflectCount++;
-			Vec3f View = ray.d;
-			//Vec3f R = (-LDir + (hitRec.n * (LDir.dot(hitRec.n)) * 2.0)).normalize();
-			Vec3f R = (View - (hitRec.n * (View.dot(hitRec.n)) * 2.0)).normalize();
-			//Vec3f R = (hitRec.n* 2.0* ray.d.dot(hitRec.n) - ray.d).normalize();
+			Vec3f R = (ray.d - (hitRec.n * (ray.d.dot(hitRec.n)) * 2.0)).normalize();
+
 			Ray reflect;
 			HitRec Ref;
-			reflect.o = hitRec.p;
-			reflect.epsMoveStartAlongSurfaceNormal(hitRec.n);
-			
+			reflect.o = hitRec.p + (R * ray.rayEps);
 			reflect.d = R;
-			
-			reflect.epsMoveStartAlongDir();
-			R = raytrace(reflect, Ref) *
-				pow(max(reflect.d.dot(ray.d),0.0f), s.shiny);
-			if (R.x < 0.0) R.x = 0.0;
-			if (R.x > 1.0) R.x = 1.0;
-			if (R.y < 0.0) R.y = 0.0;
-			if (R.y > 1.0) R.y = 1.0;
-			if (R.z < 0.0) R.z = 0.0;
-			if (R.z > 1.0) R.z = 1.0;
-			//cout << "R.x: " << R.x << " R.y: " << R.y << " R.z: " << R.z << endl;
-			color = color + R;
-			/*color += raytrace(reflect, Ref) *
-				pow(reflect.d.dot(ray.d), s.shiny);*/
+
+			Vec3f color2 = raytrace(reflect, Ref).multCoordwise(s.specular);
+			color = color + color2;
+
+			/*Ray r_ray;
+			HitRec r_rec;
+			float s = 2 * (ray.d.dot(hit_rec.n));
+			Vec3f scalar = Vec3f(s, s, s);
+			r_ray.d = ray.d - (scalar.mult_coordwise(hit_rec.n));
+			r_ray.o = hit_rec.p + (r_ray.d * 0.5f);
+
+			color += ray_trace(r_ray, r_rec, calls - 1).mult_coordwise(sphere.ks * 0.2);*/
+
 		}
 		else {
 			//cout << "ray reflect: " << reflectCount << endl;
 		}
 
 
-		return color;		
+		return color;
 	}
 
 	Vec3f raytrace(Ray ray, HitRec & hitrec) {
 		Vec3f color = Vec3f(0.0, 0.0, 0.0);
 		hitrec.anyHit = false;
 		//if (ray.o.x != ray.o.x) cout << ray.o.x << endl;
+
 		searchClosestHit(ray, hitrec);
 		if (hitrec.anyHit) {
 			return lightning(ray, hitrec, color);
-			//return phong(ray, hitrec);
+			//return phong(ray, hitrec) + Vec3f(0.3,0.3,0.3);
 		}
 		else {
 			return Vec3f(0.0, 0.0, 0.0);
 		}
 	}
 
-	void fireRays(void) { 
+	void fireRays(void) {
 		Ray ray;
 		HitRec hitRec;
 		//bool hit = false;
 		ray.o = cam.getPosition();//Vec3f(0.0f, 0.0f, 0.0f); //Set the start position of the eye rays to the origin
-		
+
 		for (int y = 0; y < image->getHeight(); y++) {
 			for (int x = 0; x < image->getWidth(); x++) {
 				reflectCount = 0;
 				ray.d = getEyeRayDirection(x, y);
 				Vec3f color = Vec3f(0.0f, 0.0f, 0.0f);
-				color = raytrace(ray,hitRec);
+
+				color = raytrace(ray, hitRec);
+
+				color.x = max(0.0, color.x);
+				color.y = max(0.0, color.y);
+				color.z = max(0.0, color.z);
+
+				color.x = min(1.0, color.x);
+				color.y = min(1.0, color.y);
+				color.z = min(1.0, color.z);
+
+				if (color.x > 1.0 || color.x < 0.0 || color.y > 1.0 || color.y < 0.0 || color.z > 1.0 || color.z < 0.0)
+				{
+					cout << "it went to shit" << endl;
+				}
 				image->setPixel(x, y, color);
 				glSetPixel(x, y, color);
-				//hitRec.anyHit = false;
-				//searchClosestHit(ray, hitRec);
-				//if (hitRec.anyHit) {
-				//	color = lightning(ray,hitRec);	
-				//	//color = phong(ray, hitRec);
-				//	image->setPixel(x, y, color);
-				//	glSetPixel(x, y, color);
-				//} else {
-				//	image->setPixel(x, y, Vec3f(0.0f, 0.0f, 0.0f));
-				//	glSetPixel(x, y, (Vec3f &)Vec3f(0.0f, 0.0f, 0.0f));
-				//}
 			}
 		}
 	}
@@ -243,7 +279,7 @@ public:
 SimpleRayTracer * rayTracer;
 
 void display(void) {
-	glClear(GL_COLOR_BUFFER_BIT+GL_DEPTH_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT + GL_DEPTH_BUFFER_BIT);
 	//glTranslatef(cam.getX(), cam.getY(), cam.getZ());
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -253,13 +289,20 @@ void display(void) {
 	rayTracer->fireRays();
 	timer = time(NULL) - timer;
 	cout << "Time: " << timer << " Rays: " << rayTracer->rayCount << endl;
-	
+	cout << "Cam: " << cam.getX() << " " << cam.getY() << " " << cam.getZ() << endl;
+	cout << "Light: " << light.getX() << " " << light.getY() << " " << light.getZ() << endl;
+	for (int i = 0; i < rayTracer->scene->spheres.size(); i++)
+	{
+		cout << "Sphere " << i << ": " << rayTracer->scene->spheres[i].c.x << " " << rayTracer->scene->spheres[i].c.y << " " << rayTracer->scene->spheres[i].c.z << endl;
+	}
+
 
 	glFlush();
 }
 
 void keypress(unsigned char key, int x, int y)
 {
+
 	float speed = 0.1f;
 	switch (key) {
 	case 'x':
@@ -318,20 +361,21 @@ void keypress(unsigned char key, int x, int y)
 		break;
 
 	}
-	display();
+	glutPostRedisplay();
+	//display();
 }
 
 void changeSize(int w, int h) {
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluOrtho2D(0, w, 0, h);
-	glViewport(0,0,w,h);
+	glViewport(0, 0, w, h);
 }
 
 void init(void)
 {
-	
-	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+
+	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize(640, 480);
 	glutCreateWindow("SimpleRayTracer");
 	glutDisplayFunc(display);
@@ -348,15 +392,19 @@ void init(void)
 	//scene->add((Sphere&)Sphere(Vec3f(5.0f, 0.0f, -10.0f), 2.0f));
 	//scene->add((Sphere&)Sphere(Vec3f(0.0f, 0.0f, -6.0f), 0.5f));
 	//scene->add((Sphere&)Sphere(Vec3f(0.0f, 0.0f, -10.0f), 2.0f));
-	scene->add((Sphere&)Sphere(Vec3f(-1.0f, -1.0f, -8.0f), 1.0f,Vec3f(0.0f,.1f,0.0f), Vec3f(0.0f,0.8f,0.0f)));
-	scene->add((Sphere&)Sphere(Vec3f(-1.0f, 1.0f, -8.0f), 1.0f, Vec3f(0.1f, 0.0f, 0.0f), Vec3f(0.8f, 0.0f, 0.0f)));
-	//scene->add((Sphere&)Sphere(Vec3f(-1.0f, -1.0f, -8.0f), 1.0f));
+	//scene->add((Sphere&)Sphere(Vec3f(1.5f, 1.5f, -8.0f), .5f,Vec3f(0.0f,.1f,0.0f), Vec3f(0.0f,0.8f,0.0f)));
+
+	//scene->add((Sphere&)Sphere(Vec3f(0.0f, 0.0f, -8.0f), .5f, Vec3f(0.1f, 0.0f, 0.0f), Vec3f(0.8f, 0.0f, 0.0f)));
+
+	scene->add((Sphere&)Sphere(Vec3f(-0.6f, 0.0f, -7.0f), 0.5f, Vec3f(0.1f, 0.0f, 0.0f), Vec3f(0.8f, 0.0f, 0.0f)));
+	scene->add((Sphere&)Sphere(Vec3f(0.6f, 0.0f, -7.0f), 0.5f, Vec3f(0.1f, 0.0f, 0.0f), Vec3f(0.0f, 0.0f, 0.9f)));
 	//scene->add((Sphere&)Sphere(Vec3f(0.0f, 0.0f, -10.0f), 2.0f));
-	scene->add((Sphere&)Sphere(Vec3f(0.0f, 0.0f, -18.0f), 8.0f));
+
+	//scene->add((Sphere&)Sphere(Vec3f(0.0f, 0.0f, -17.0f), 8.0f));
 	//scene->add(li);
 
-	Image * image = new Image(640, 480);	
-	
+	Image * image = new Image(640, 480);
+
 	rayTracer = new SimpleRayTracer(scene, image);
 
 }
