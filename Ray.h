@@ -9,7 +9,7 @@ public:
 	float tClip;	
 	static float rayEps;
 	static float tMax;
-	float reflectDepth = 0;
+	float inMaterial = 1;
 public:
 	Ray() : tClip(tMax) { }	
 	Ray(const Vec3f & o, const Vec3f& d, float tclip = tMax) : o(o), d(d), tClip(tMax) { }
@@ -25,9 +25,12 @@ public:
 class HitRec {
 public:	
 	float tHit;
+	float tHit2;
 	int primIndex;
 	Vec3f p;
+	Vec3f p2;
 	Vec3f n;
+	Vec3f n2;
 	bool anyHit;
 };
 

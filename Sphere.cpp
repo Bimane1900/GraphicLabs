@@ -19,6 +19,9 @@ bool Sphere::hit(const Ray & r, HitRec & rec) const {
 		return false;
 	}
 
+	/*
+		Formula to test intersection
+	*/
 	Vec3f CenToOrigin = r.o - this->c;
 	float A = r.d.dot(r.d);
 	float B = 2 * (CenToOrigin.dot(r.d));
@@ -32,10 +35,12 @@ bool Sphere::hit(const Ray & r, HitRec & rec) const {
 	float t1 = (-B + sqrtf(D)) / (2 * A);
 	float t2 = (-B - sqrtf(D)) / (2 * A);
 
-	const float t = t1 < t2 ? t1 : t2;
+	const float t = (t1 < t2)  ? t1 : t2;
 
 	if (!rec.anyHit || rec.tHit > t) {
+	
 		rec.tHit = t;
+		rec.tHit2 = (t1 > t2) ? t1 : t2;
 		rec.anyHit = true;
 		return true;
 	}
@@ -44,6 +49,8 @@ bool Sphere::hit(const Ray & r, HitRec & rec) const {
 
 
 void Sphere::computeSurfaceHitFields(const Ray & r, HitRec & rec) const {
+	rec.p2 = r.o + r.d * rec.tHit2;
 	rec.p = r.o + r.d * rec.tHit;
 	rec.n = (rec.p - c).normalize();
+	rec.n2 = (rec.p2 - c).normalize();
 }
